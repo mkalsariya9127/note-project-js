@@ -1,80 +1,36 @@
-// let notes = JSON.parse(localStorage.getItem("notes")) || [];
-
-// const notesList = document.getElementById("noteList");
-// const noteTitle = document.getElementById("noteTitle");
-// const noteText = document.getElementById("NoteText");
-// const editIndex = document.getElementById("editIndex");
-// const saveBtn = document.getElementById("saveBtn");
-// const noteModal = document.getElementById("noteModal");
-// const modalTitle = document.getElementById("modalTitle");
-
-// function displayNotes() {
-//     notesList.innerHTML = notes.map((note, index) => `
-//         <div class="col-md-4">
-//             <div class="note-card ${note.color || ""}">
-//                 <h6>${note.title || "Untitled"}</h6>
-//                 <p>${note.text || ""}</p>
-//                 <div class="note-actions">
-//                     <i class="bi bi-pencil-square" role="button" onclick="editNote(${index})"></i>
-//                     <i class="bi bi-trash" role="button" onclick="deleteNote(${index})"></i>
-//                 </div>
-//             </div>
-//         </div>
-//     `).join("");
-// }
-
-// saveBtn.addEventListener("click", () => {
-//     const title = noteTitle.value.trim();
-//     const text = noteText.value.trim();
-
-//     if (!title || !text) {
-//         alert("Please fill all fields");
-//         return;
-//     }
-
-//     const note = { title, text, color: "bg-blue" };
-//     const index = editIndex.value;
-
-//     if (index === "") {
-//         notes.push(note);
-//     } else {
-//         notes[Number(index)] = note;
-//     }
-
-//     localStorage.setItem("notes", JSON.stringify(notes));
-//     displayNotes();
-//     noteTitle.value = "";
-//     noteText.value = "";
-//     editIndex.value = "";
-//     modalTitle.textContent = "Add note";
-//     bootstrap.Modal.getOrCreateInstance(noteModal).hide();
-// });
-
-// window.editNote = (index) => {
-//     const note = notes[index];
-//     noteTitle.value = note.title || "";
-//     noteText.value = note.text || "";
-//     editIndex.value = index;
-//     modalTitle.textContent = "Edit note";
-//     bootstrap.Modal.getOrCreateInstance(noteModal).show();
-// };
-
-// window.deleteNote = (index) => {
-//     notes.splice(index, 1);
-//     localStorage.setItem("notes", JSON.stringify(notes));
-//     displayNotes();
-// };
-
-// displayNotes();
-
-
 // =========================
 // NOTES DATA
 // =========================
 
-let notes = JSON.parse(localStorage.getItem("notes")) || [];
+function escapeHtml(value) {
 
-let folders = JSON.parse(localStorage.getItem("folders")) || [
+    return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+
+function readList(key) {
+
+    try {
+
+        const stored = JSON.parse(localStorage.getItem(key));
+
+        return Array.isArray(stored) ? stored : null;
+
+    } catch (error) {
+
+        return null;
+    }
+}
+
+
+let notes = readList("notes") || [];
+
+let folders = readList("folders") || [
     {
         name: "Movie Reviews",
         date: "12/08/2026"
@@ -94,7 +50,7 @@ let folders = JSON.parse(localStorage.getItem("folders")) || [
 // PRO STATUS
 // =========================
 
-let isPro = JSON.parse(localStorage.getItem("isPro")) || false;
+let isPro = localStorage.getItem("isPro") === "true";
 
 
 // =========================
@@ -137,22 +93,24 @@ function displayNotes() {
 
         <div class="col-md-4">
 
-            <div class="note-card ${note.color || ""}">
+            <div class="note-card ${escapeHtml(note.color || "")}">
 
-                <h6>${note.title || "Untitled"}</h6>
+                <h6>${escapeHtml(note.title || "Untitled")}</h6>
 
-                <p>${note.text || ""}</p>
+                <p>${escapeHtml(note.text || "")}</p>
 
                 <div class="note-actions">
 
                     <i class="bi bi-pencil-square"
                        role="button"
-                       onclick="editNote(${index})">
+                       data-action="edit-note"
+                       data-index="${index}">
                     </i>
 
                     <i class="bi bi-trash"
                        role="button"
-                       onclick="deleteNote(${index})">
+                       data-action="delete-note"
+                       data-index="${index}">
                     </i>
 
                 </div>
@@ -163,6 +121,35 @@ function displayNotes() {
 
     `).join("");
 }
+
+
+// =========================
+// NOTE ACTIONS
+// =========================
+
+notesList.addEventListener("click", (event) => {
+
+    const target = event.target.closest("[data-action]");
+
+    if (!target || !notesList.contains(target)) {
+
+        return;
+    }
+
+
+    const index = Number(target.dataset.index);
+
+
+    if (target.dataset.action === "edit-note") {
+
+        editNote(index);
+
+    } else if (target.dataset.action === "delete-note") {
+
+        deleteNote(index);
+    }
+
+});
 
 
 // =========================
@@ -193,11 +180,11 @@ saveBtn.addEventListener("click", () => {
     };
 
 
-    const index = editIndex.value;
+    const index = Number(editIndex.value);
 
 
     // New Note
-    if (index === "") {
+    if (editIndex.value === "" || !notes[index]) {
 
         notes.push(note);
 
@@ -206,7 +193,7 @@ saveBtn.addEventListener("click", () => {
     // Edit Note
     else {
 
-        notes[Number(index)] = note;
+        notes[index] = note;
 
     }
 
@@ -244,9 +231,14 @@ saveBtn.addEventListener("click", () => {
 // EDIT NOTE
 // =========================
 
-window.editNote = (index) => {
+function editNote(index) {
 
     const note = notes[index];
+
+    if (!note) {
+
+        return;
+    }
 
 
     // Show old data in inputs
@@ -267,14 +259,20 @@ window.editNote = (index) => {
         .getOrCreateInstance(noteModal)
         .show();
 
-};
+}
 
 
 // =========================
 // DELETE NOTE
 // =========================
 
-window.deleteNote = (index) => {
+function deleteNote(index) {
+
+    if (!notes[index]) {
+
+        return;
+    }
+
 
     // Confirmation
     const confirmDelete = confirm(
@@ -300,7 +298,7 @@ window.deleteNote = (index) => {
 
     }
 
-};
+}
 
 
 // =========================
@@ -317,17 +315,18 @@ function displayFolders() {
 
                 <div class="d-flex justify-content-between">
 
-                    <h6>${folder.name}</h6>
+                    <h6>${escapeHtml(folder.name)}</h6>
 
                     <i class="bi bi-trash"
                        role="button"
-                       onclick="deleteFolder(${index})">
+                       data-action="delete-folder"
+                       data-index="${index}">
                     </i>
 
                 </div>
 
                 <p class="text-muted small">
-                    ${folder.date}
+                    ${escapeHtml(folder.date)}
                 </p>
 
             </div>
@@ -365,6 +364,21 @@ function displayFolders() {
         .addEventListener("click", openFolderModal);
 
 }
+
+
+folderList.addEventListener("click", (event) => {
+
+    const target = event.target.closest("[data-action='delete-folder']");
+
+    if (!target || !folderList.contains(target)) {
+
+        return;
+    }
+
+
+    deleteFolder(Number(target.dataset.index));
+
+});
 
 
 // =========================
@@ -463,7 +477,13 @@ createFolderBtn.addEventListener("click", () => {
 // DELETE FOLDER
 // =========================
 
-window.deleteFolder = (index) => {
+function deleteFolder(index) {
+
+    if (!folders[index]) {
+
+        return;
+    }
+
 
     const confirmDelete = confirm(
         "Are you sure you want to delete this folder?"
@@ -488,7 +508,7 @@ window.deleteFolder = (index) => {
 
     }
 
-};
+}
 
 
 // =========================
@@ -573,13 +593,13 @@ searchInput.addEventListener("input", () => {
         notes.filter(note => {
 
             return (
-                note.title
+                String(note.title || "")
                     .toLowerCase()
                     .includes(searchValue)
 
                 ||
 
-                note.text
+                String(note.text || "")
                     .toLowerCase()
                     .includes(searchValue)
             );
@@ -592,11 +612,11 @@ searchInput.addEventListener("input", () => {
 
         <div class="col-md-4">
 
-            <div class="note-card ${note.color || ""}">
+            <div class="note-card ${escapeHtml(note.color || "")}">
 
-                <h6>${note.title || "Untitled"}</h6>
+                <h6>${escapeHtml(note.title || "Untitled")}</h6>
 
-                <p>${note.text || ""}</p>
+                <p>${escapeHtml(note.text || "")}</p>
 
             </div>
 

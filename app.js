@@ -1,80 +1,55 @@
-// let notes = JSON.parse(localStorage.getItem("notes")) || [];
+// =========================
+// SHARED UTILITIES
+// =========================
 
-// const notesList = document.getElementById("noteList");
-// const noteTitle = document.getElementById("noteTitle");
-// const noteText = document.getElementById("NoteText");
-// const editIndex = document.getElementById("editIndex");
-// const saveBtn = document.getElementById("saveBtn");
-// const noteModal = document.getElementById("noteModal");
-// const modalTitle = document.getElementById("modalTitle");
+const storageKeys = {
+    notes: "notes",
+    folders: "folders",
+    isPro: "isPro"
+};
 
-// function displayNotes() {
-//     notesList.innerHTML = notes.map((note, index) => `
-//         <div class="col-md-4">
-//             <div class="note-card ${note.color || ""}">
-//                 <h6>${note.title || "Untitled"}</h6>
-//                 <p>${note.text || ""}</p>
-//                 <div class="note-actions">
-//                     <i class="bi bi-pencil-square" role="button" onclick="editNote(${index})"></i>
-//                     <i class="bi bi-trash" role="button" onclick="deleteNote(${index})"></i>
-//                 </div>
-//             </div>
-//         </div>
-//     `).join("");
-// }
+function getStoredValue(key, fallback) {
+    return JSON.parse(localStorage.getItem(key)) || fallback;
+}
 
-// saveBtn.addEventListener("click", () => {
-//     const title = noteTitle.value.trim();
-//     const text = noteText.value.trim();
+function setStoredValue(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+}
 
-//     if (!title || !text) {
-//         alert("Please fill all fields");
-//         return;
-//     }
+function persistAndRender(key, value, render) {
+    setStoredValue(key, value);
+    render();
+}
 
-//     const note = { title, text, color: "bg-blue" };
-//     const index = editIndex.value;
+function showModal(element) {
+    bootstrap.Modal.getOrCreateInstance(element).show();
+}
 
-//     if (index === "") {
-//         notes.push(note);
-//     } else {
-//         notes[Number(index)] = note;
-//     }
+function hideModal(element) {
+    bootstrap.Modal.getOrCreateInstance(element).hide();
+}
 
-//     localStorage.setItem("notes", JSON.stringify(notes));
-//     displayNotes();
-//     noteTitle.value = "";
-//     noteText.value = "";
-//     editIndex.value = "";
-//     modalTitle.textContent = "Add note";
-//     bootstrap.Modal.getOrCreateInstance(noteModal).hide();
-// });
+function deleteItem(items, index, itemName, storageKey, render) {
+    const confirmDelete = confirm(
+        `Are you sure you want to delete this ${itemName}?`
+    );
 
-// window.editNote = (index) => {
-//     const note = notes[index];
-//     noteTitle.value = note.title || "";
-//     noteText.value = note.text || "";
-//     editIndex.value = index;
-//     modalTitle.textContent = "Edit note";
-//     bootstrap.Modal.getOrCreateInstance(noteModal).show();
-// };
+    if (!confirmDelete) {
+        return;
+    }
 
-// window.deleteNote = (index) => {
-//     notes.splice(index, 1);
-//     localStorage.setItem("notes", JSON.stringify(notes));
-//     displayNotes();
-// };
-
-// displayNotes();
+    items.splice(index, 1);
+    persistAndRender(storageKey, items, render);
+}
 
 
 // =========================
 // NOTES DATA
 // =========================
 
-let notes = JSON.parse(localStorage.getItem("notes")) || [];
+let notes = getStoredValue(storageKeys.notes, []);
 
-let folders = JSON.parse(localStorage.getItem("folders")) || [
+let folders = getStoredValue(storageKeys.folders, [
     {
         name: "Movie Reviews",
         date: "12/08/2026"
@@ -87,14 +62,14 @@ let folders = JSON.parse(localStorage.getItem("folders")) || [
         name: "book list",
         date: "02/08/2026"
     }
-];
+]);
 
 
 // =========================
 // PRO STATUS
 // =========================
 
-let isPro = JSON.parse(localStorage.getItem("isPro")) || false;
+let isPro = getStoredValue(storageKeys.isPro, false);
 
 
 // =========================
@@ -131,9 +106,26 @@ const upgradeBtn = document.getElementById("upgradeBtn");
 // DISPLAY NOTES
 // =========================
 
-function displayNotes() {
+function renderNoteCard(note, index) {
+    const actions = index === undefined
+        ? ""
+        : `
+            <div class="note-actions">
 
-    notesList.innerHTML = notes.map((note, index) => `
+                <i class="bi bi-pencil-square"
+                   role="button"
+                   onclick="editNote(${index})">
+                </i>
+
+                <i class="bi bi-trash"
+                   role="button"
+                   onclick="deleteNote(${index})">
+                </i>
+
+            </div>
+        `;
+
+    return `
 
         <div class="col-md-4">
 
@@ -143,25 +135,20 @@ function displayNotes() {
 
                 <p>${note.text || ""}</p>
 
-                <div class="note-actions">
-
-                    <i class="bi bi-pencil-square"
-                       role="button"
-                       onclick="editNote(${index})">
-                    </i>
-
-                    <i class="bi bi-trash"
-                       role="button"
-                       onclick="deleteNote(${index})">
-                    </i>
-
-                </div>
+                ${actions}
 
             </div>
 
         </div>
 
-    `).join("");
+    `;
+}
+
+function displayNotes() {
+
+    notesList.innerHTML = notes
+        .map((note, index) => renderNoteCard(note, index))
+        .join("");
 }
 
 
@@ -211,15 +198,7 @@ saveBtn.addEventListener("click", () => {
     }
 
 
-    // Save notes in localStorage
-    localStorage.setItem(
-        "notes",
-        JSON.stringify(notes)
-    );
-
-
-    // Show notes
-    displayNotes();
+    persistAndRender(storageKeys.notes, notes, displayNotes);
 
 
     // Clear inputs
@@ -232,10 +211,7 @@ saveBtn.addEventListener("click", () => {
     modalTitle.textContent = "Add note";
 
 
-    // Close modal
-    bootstrap.Modal
-        .getOrCreateInstance(noteModal)
-        .hide();
+    hideModal(noteModal);
 
 });
 
@@ -262,10 +238,7 @@ window.editNote = (index) => {
     modalTitle.textContent = "Edit note";
 
 
-    // Open modal
-    bootstrap.Modal
-        .getOrCreateInstance(noteModal)
-        .show();
+    showModal(noteModal);
 
 };
 
@@ -276,29 +249,13 @@ window.editNote = (index) => {
 
 window.deleteNote = (index) => {
 
-    // Confirmation
-    const confirmDelete = confirm(
-        "Are you sure you want to delete this note?"
+    deleteItem(
+        notes,
+        index,
+        "note",
+        storageKeys.notes,
+        displayNotes
     );
-
-
-    if (confirmDelete) {
-
-        // Delete note
-        notes.splice(index, 1);
-
-
-        // Update localStorage
-        localStorage.setItem(
-            "notes",
-            JSON.stringify(notes)
-        );
-
-
-        // Refresh notes
-        displayNotes();
-
-    }
 
 };
 
@@ -388,10 +345,7 @@ function openFolderModal() {
     folderName.value = "";
 
 
-    // Open modal
-    bootstrap.Modal
-        .getOrCreateInstance(folderModal)
-        .show();
+    showModal(folderModal);
 
 }
 
@@ -436,25 +390,14 @@ createFolderBtn.addEventListener("click", () => {
     folders.push(folder);
 
 
-    // Save in localStorage
-    localStorage.setItem(
-        "folders",
-        JSON.stringify(folders)
-    );
-
-
-    // Refresh folders
-    displayFolders();
+    persistAndRender(storageKeys.folders, folders, displayFolders);
 
 
     // Clear input
     folderName.value = "";
 
 
-    // Close modal
-    bootstrap.Modal
-        .getOrCreateInstance(folderModal)
-        .hide();
+    hideModal(folderModal);
 
 });
 
@@ -465,28 +408,13 @@ createFolderBtn.addEventListener("click", () => {
 
 window.deleteFolder = (index) => {
 
-    const confirmDelete = confirm(
-        "Are you sure you want to delete this folder?"
+    deleteItem(
+        folders,
+        index,
+        "folder",
+        storageKeys.folders,
+        displayFolders
     );
-
-
-    if (confirmDelete) {
-
-        // Remove folder
-        folders.splice(index, 1);
-
-
-        // Save updated folders
-        localStorage.setItem(
-            "folders",
-            JSON.stringify(folders)
-        );
-
-
-        // Refresh folders
-        displayFolders();
-
-    }
 
 };
 
@@ -535,11 +463,7 @@ upgradeBtn.addEventListener("click", () => {
         isPro = true;
 
 
-        // Save status
-        localStorage.setItem(
-            "isPro",
-            JSON.stringify(isPro)
-        );
+        setStoredValue(storageKeys.isPro, isPro);
 
 
         // Update button
@@ -587,22 +511,9 @@ searchInput.addEventListener("input", () => {
         });
 
 
-    notesList.innerHTML =
-        filteredNotes.map((note) => `
-
-        <div class="col-md-4">
-
-            <div class="note-card ${note.color || ""}">
-
-                <h6>${note.title || "Untitled"}</h6>
-
-                <p>${note.text || ""}</p>
-
-            </div>
-
-        </div>
-
-    `).join("");
+    notesList.innerHTML = filteredNotes
+        .map((note) => renderNoteCard(note))
+        .join("");
 
 });
 

@@ -69,12 +69,243 @@
 
 
 // =========================
+// ERROR REPORTING
+// =========================
+
+function logError(context, error) {
+
+    console.error(`[notes] ${context}`, error);
+
+}
+
+
+// Log for developers, tell the user something actually went wrong.
+function reportError(context, error, userMessage) {
+
+    logError(context, error);
+
+    if (userMessage) {
+
+        alert(userMessage);
+
+    }
+
+}
+
+
+// Surface failures that would otherwise only reach the console.
+window.addEventListener("error", (event) => {
+
+    logError("Uncaught error", event.error || event.message);
+
+});
+
+
+window.addEventListener("unhandledrejection", (event) => {
+
+    logError("Unhandled promise rejection", event.reason);
+
+});
+
+
+// =========================
+// STORAGE HELPERS
+// =========================
+
+// localStorage can be unavailable (private mode, disabled storage) and its
+// contents can be corrupt, so every access is guarded and validated.
+function readStorage(key, fallback, isValid) {
+
+    let raw;
+
+    try {
+
+        raw = localStorage.getItem(key);
+
+    } catch (error) {
+
+        reportError(
+            `Cannot read "${key}" from localStorage`,
+            error,
+            "Storage is not available, so your notes cannot be loaded or saved in this browser."
+        );
+
+        return fallback;
+    }
+
+
+    if (raw === null) {
+
+        return fallback;
+    }
+
+
+    let parsed;
+
+    try {
+
+        parsed = JSON.parse(raw);
+
+    } catch (error) {
+
+        reportError(
+            `Stored value for "${key}" is not valid JSON, falling back to defaults`,
+            error,
+            "Some saved data was unreadable and has been reset."
+        );
+
+        return fallback;
+    }
+
+
+    if (!isValid(parsed)) {
+
+        logError(
+            `Stored value for "${key}" has an unexpected shape, falling back to defaults`,
+            parsed
+        );
+
+        return fallback;
+    }
+
+
+    return parsed;
+}
+
+
+// Returns false when the write failed so callers can undo their change
+// instead of showing state that was never persisted.
+function writeStorage(key, value) {
+
+    try {
+
+        localStorage.setItem(key, JSON.stringify(value));
+
+        return true;
+
+    } catch (error) {
+
+        reportError(
+            `Cannot save "${key}" to localStorage`,
+            error,
+            "Your changes could not be saved. Storage may be full or unavailable."
+        );
+
+        return false;
+    }
+
+}
+
+
+// =========================
+// DOM HELPERS
+// =========================
+
+const missingElements = [];
+
+
+function requireElement(id) {
+
+    const element = document.getElementById(id);
+
+    if (!element) {
+
+        missingElements.push(id);
+
+    }
+
+    return element;
+}
+
+
+// Binds a listener only when the element exists, and never lets a handler
+// throw silently past the event loop.
+function on(element, eventName, handler, context, userMessage) {
+
+    if (!element) {
+
+        logError(
+            `Cannot bind "${eventName}" for ${context}: element is missing`,
+            null
+        );
+
+        return;
+    }
+
+
+    element.addEventListener(eventName, (event) => {
+
+        try {
+
+            handler(event);
+
+        } catch (error) {
+
+            reportError(context, error, userMessage);
+
+        }
+
+    });
+
+}
+
+
+// Bootstrap is loaded from a CDN, so it may be missing at runtime.
+function toggleModal(modalElement, action, context) {
+
+    if (!modalElement) {
+
+        logError(`Cannot ${action} modal for ${context}: element is missing`, null);
+
+        return false;
+    }
+
+
+    if (typeof bootstrap === "undefined" || !bootstrap.Modal) {
+
+        reportError(
+            `Bootstrap JS is not available, cannot ${action} modal for ${context}`,
+            null,
+            "The page did not load completely. Please reload and try again."
+        );
+
+        return false;
+    }
+
+
+    try {
+
+        bootstrap.Modal
+            .getOrCreateInstance(modalElement)[action]();
+
+        return true;
+
+    } catch (error) {
+
+        reportError(`Failed to ${action} modal for ${context}`, error);
+
+        return false;
+    }
+
+}
+
+
+function escapeHtml(value) {
+
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+
+// =========================
 // NOTES DATA
 // =========================
 
-let notes = JSON.parse(localStorage.getItem("notes")) || [];
-
-let folders = JSON.parse(localStorage.getItem("folders")) || [
+const DEFAULT_FOLDERS = [
     {
         name: "Movie Reviews",
         date: "12/08/2026"
@@ -90,58 +321,106 @@ let folders = JSON.parse(localStorage.getItem("folders")) || [
 ];
 
 
+function isRecordArray(value) {
+
+    return Array.isArray(value)
+        && value.every(item => item !== null && typeof item === "object");
+}
+
+
+let notes = readStorage("notes", [], isRecordArray);
+
+let folders = readStorage("folders", DEFAULT_FOLDERS.slice(), isRecordArray);
+
+
 // =========================
 // PRO STATUS
 // =========================
 
-let isPro = JSON.parse(localStorage.getItem("isPro")) || false;
+let isPro = readStorage(
+    "isPro",
+    false,
+    value => typeof value === "boolean"
+);
 
 
 // =========================
 // NOTES ELEMENTS
 // =========================
 
-const notesList = document.getElementById("noteList");
-const noteTitle = document.getElementById("noteTitle");
-const noteText = document.getElementById("NoteText");
-const editIndex = document.getElementById("editIndex");
-const saveBtn = document.getElementById("saveBtn");
-const noteModal = document.getElementById("noteModal");
-const modalTitle = document.getElementById("modalTitle");
+const notesList = requireElement("noteList");
+const noteTitle = requireElement("noteTitle");
+const noteText = requireElement("NoteText");
+const editIndex = requireElement("editIndex");
+const saveBtn = requireElement("saveBtn");
+const noteModal = requireElement("noteModal");
+const modalTitle = requireElement("modalTitle");
 
 
 // =========================
 // FOLDER ELEMENTS
 // =========================
 
-const folderList = document.getElementById("folderList");
-const folderModal = document.getElementById("folderModal");
-const folderName = document.getElementById("folderName");
-const createFolderBtn = document.getElementById("createFolderBtn");
+const folderList = requireElement("folderList");
+const folderModal = requireElement("folderModal");
+const folderName = requireElement("folderName");
+const createFolderBtn = requireElement("createFolderBtn");
 
 
 // =========================
 // UPGRADE ELEMENT
 // =========================
 
-const upgradeBtn = document.getElementById("upgradeBtn");
+const upgradeBtn = requireElement("upgradeBtn");
 
 
 // =========================
-// DISPLAY NOTES
+// SEARCH ELEMENT
 // =========================
 
-function displayNotes() {
+const searchInput = requireElement("searchInput");
 
-    notesList.innerHTML = notes.map((note, index) => `
 
-        <div class="col-md-4">
+if (missingElements.length > 0) {
 
-            <div class="note-card ${note.color || ""}">
+    logError(
+        `Missing expected elements: ${missingElements.join(", ")}`,
+        null
+    );
 
-                <h6>${note.title || "Untitled"}</h6>
+}
 
-                <p>${note.text || ""}</p>
+
+// =========================
+// NOTE INDEX VALIDATION
+// =========================
+
+function resolveIndex(list, rawIndex, context) {
+
+    const index = Number(rawIndex);
+
+    if (!Number.isInteger(index) || index < 0 || index >= list.length) {
+
+        reportError(
+            `${context}: index ${rawIndex} is out of range`,
+            null,
+            "That item no longer exists. Please refresh the page."
+        );
+
+        return -1;
+    }
+
+    return index;
+}
+
+
+// =========================
+// RENDER NOTE CARDS
+// =========================
+
+function noteCardMarkup(note, index) {
+
+    const actions = index === null ? "" : `
 
                 <div class="note-actions">
 
@@ -156,12 +435,43 @@ function displayNotes() {
                     </i>
 
                 </div>
+    `;
 
+    return `
+
+        <div class="col-md-4">
+
+            <div class="note-card ${escapeHtml(note.color || "")}">
+
+                <h6>${escapeHtml(note.title || "Untitled")}</h6>
+
+                <p>${escapeHtml(note.text || "")}</p>
+                ${actions}
             </div>
 
         </div>
 
-    `).join("");
+    `;
+}
+
+
+// =========================
+// DISPLAY NOTES
+// =========================
+
+function displayNotes() {
+
+    if (!notesList) {
+
+        logError("Cannot display notes: #noteList is missing", null);
+
+        return;
+    }
+
+
+    notesList.innerHTML = notes
+        .map((note, index) => noteCardMarkup(note, index))
+        .join("");
 }
 
 
@@ -169,7 +479,7 @@ function displayNotes() {
 // SAVE NOTE
 // =========================
 
-saveBtn.addEventListener("click", () => {
+on(saveBtn, "click", () => {
 
     const title = noteTitle.value.trim();
     const text = noteText.value.trim();
@@ -193,11 +503,14 @@ saveBtn.addEventListener("click", () => {
     };
 
 
-    const index = editIndex.value;
+    const rawIndex = editIndex.value;
+
+    let replaced;
+    let index = -1;
 
 
     // New Note
-    if (index === "") {
+    if (rawIndex === "") {
 
         notes.push(note);
 
@@ -206,16 +519,34 @@ saveBtn.addEventListener("click", () => {
     // Edit Note
     else {
 
-        notes[Number(index)] = note;
+        index = resolveIndex(notes, rawIndex, "Save note");
+
+        if (index === -1) {
+
+            return;
+        }
+
+        replaced = notes[index];
+        notes[index] = note;
 
     }
 
 
-    // Save notes in localStorage
-    localStorage.setItem(
-        "notes",
-        JSON.stringify(notes)
-    );
+    // Save notes in localStorage, undoing the change if it cannot be stored
+    if (!writeStorage("notes", notes)) {
+
+        if (rawIndex === "") {
+
+            notes.pop();
+
+        } else {
+
+            notes[index] = replaced;
+
+        }
+
+        return;
+    }
 
 
     // Show notes
@@ -233,39 +564,51 @@ saveBtn.addEventListener("click", () => {
 
 
     // Close modal
-    bootstrap.Modal
-        .getOrCreateInstance(noteModal)
-        .hide();
+    toggleModal(noteModal, "hide", "save note");
 
-});
+}, "Failed to save note", "The note could not be saved.");
 
 
 // =========================
 // EDIT NOTE
 // =========================
 
-window.editNote = (index) => {
+window.editNote = (rawIndex) => {
 
-    const note = notes[index];
+    try {
 
+        const index = resolveIndex(notes, rawIndex, "Edit note");
 
-    // Show old data in inputs
-    noteTitle.value = note.title || "";
-    noteText.value = note.text || "";
+        if (index === -1) {
 
-
-    // Store note index
-    editIndex.value = index;
+            return;
+        }
 
 
-    // Change modal title
-    modalTitle.textContent = "Edit note";
+        const note = notes[index];
 
 
-    // Open modal
-    bootstrap.Modal
-        .getOrCreateInstance(noteModal)
-        .show();
+        // Show old data in inputs
+        noteTitle.value = note.title || "";
+        noteText.value = note.text || "";
+
+
+        // Store note index
+        editIndex.value = index;
+
+
+        // Change modal title
+        modalTitle.textContent = "Edit note";
+
+
+        // Open modal
+        toggleModal(noteModal, "show", "edit note");
+
+    } catch (error) {
+
+        reportError("Failed to open note for editing", error, "This note could not be opened.");
+
+    }
 
 };
 
@@ -274,29 +617,49 @@ window.editNote = (index) => {
 // DELETE NOTE
 // =========================
 
-window.deleteNote = (index) => {
+window.deleteNote = (rawIndex) => {
 
-    // Confirmation
-    const confirmDelete = confirm(
-        "Are you sure you want to delete this note?"
-    );
+    try {
+
+        const index = resolveIndex(notes, rawIndex, "Delete note");
+
+        if (index === -1) {
+
+            return;
+        }
 
 
-    if (confirmDelete) {
+        // Confirmation
+        const confirmDelete = confirm(
+            "Are you sure you want to delete this note?"
+        );
+
+
+        if (!confirmDelete) {
+
+            return;
+        }
+
 
         // Delete note
-        notes.splice(index, 1);
+        const [removed] = notes.splice(index, 1);
 
 
-        // Update localStorage
-        localStorage.setItem(
-            "notes",
-            JSON.stringify(notes)
-        );
+        // Update localStorage, restoring the note if the write failed
+        if (!writeStorage("notes", notes)) {
+
+            notes.splice(index, 0, removed);
+
+            return;
+        }
 
 
         // Refresh notes
         displayNotes();
+
+    } catch (error) {
+
+        reportError("Failed to delete note", error, "This note could not be deleted.");
 
     }
 
@@ -309,6 +672,14 @@ window.deleteNote = (index) => {
 
 function displayFolders() {
 
+    if (!folderList) {
+
+        logError("Cannot display folders: #folderList is missing", null);
+
+        return;
+    }
+
+
     folderList.innerHTML = folders.map((folder, index) => `
 
         <div class="col-md-3">
@@ -317,7 +688,7 @@ function displayFolders() {
 
                 <div class="d-flex justify-content-between">
 
-                    <h6>${folder.name}</h6>
+                    <h6>${escapeHtml(folder.name)}</h6>
 
                     <i class="bi bi-trash"
                        role="button"
@@ -327,7 +698,7 @@ function displayFolders() {
                 </div>
 
                 <p class="text-muted small">
-                    ${folder.date}
+                    ${escapeHtml(folder.date)}
                 </p>
 
             </div>
@@ -360,9 +731,13 @@ function displayFolders() {
 
 
     // New Folder button click
-    document
-        .getElementById("addFolderBtn")
-        .addEventListener("click", openFolderModal);
+    on(
+        document.getElementById("addFolderBtn"),
+        "click",
+        openFolderModal,
+        "Failed to open the new folder dialog",
+        "The new folder dialog could not be opened."
+    );
 
 }
 
@@ -389,9 +764,7 @@ function openFolderModal() {
 
 
     // Open modal
-    bootstrap.Modal
-        .getOrCreateInstance(folderModal)
-        .show();
+    toggleModal(folderModal, "show", "new folder");
 
 }
 
@@ -400,7 +773,7 @@ function openFolderModal() {
 // CREATE NEW FOLDER
 // =========================
 
-createFolderBtn.addEventListener("click", () => {
+on(createFolderBtn, "click", () => {
 
     const name = folderName.value.trim();
 
@@ -436,11 +809,13 @@ createFolderBtn.addEventListener("click", () => {
     folders.push(folder);
 
 
-    // Save in localStorage
-    localStorage.setItem(
-        "folders",
-        JSON.stringify(folders)
-    );
+    // Save in localStorage, undoing the change if it cannot be stored
+    if (!writeStorage("folders", folders)) {
+
+        folders.pop();
+
+        return;
+    }
 
 
     // Refresh folders
@@ -452,39 +827,57 @@ createFolderBtn.addEventListener("click", () => {
 
 
     // Close modal
-    bootstrap.Modal
-        .getOrCreateInstance(folderModal)
-        .hide();
+    toggleModal(folderModal, "hide", "new folder");
 
-});
+}, "Failed to create folder", "The folder could not be created.");
 
 
 // =========================
 // DELETE FOLDER
 // =========================
 
-window.deleteFolder = (index) => {
+window.deleteFolder = (rawIndex) => {
 
-    const confirmDelete = confirm(
-        "Are you sure you want to delete this folder?"
-    );
+    try {
+
+        const index = resolveIndex(folders, rawIndex, "Delete folder");
+
+        if (index === -1) {
+
+            return;
+        }
 
 
-    if (confirmDelete) {
+        const confirmDelete = confirm(
+            "Are you sure you want to delete this folder?"
+        );
+
+
+        if (!confirmDelete) {
+
+            return;
+        }
+
 
         // Remove folder
-        folders.splice(index, 1);
+        const [removed] = folders.splice(index, 1);
 
 
-        // Save updated folders
-        localStorage.setItem(
-            "folders",
-            JSON.stringify(folders)
-        );
+        // Save updated folders, restoring the folder if the write failed
+        if (!writeStorage("folders", folders)) {
+
+            folders.splice(index, 0, removed);
+
+            return;
+        }
 
 
         // Refresh folders
         displayFolders();
+
+    } catch (error) {
+
+        reportError("Failed to delete folder", error, "This folder could not be deleted.");
 
     }
 
@@ -496,6 +889,14 @@ window.deleteFolder = (index) => {
 // =========================
 
 function updateProButton() {
+
+    if (!upgradeBtn) {
+
+        logError("Cannot update Pro button: #upgradeBtn is missing", null);
+
+        return;
+    }
+
 
     if (isPro) {
 
@@ -511,7 +912,7 @@ function updateProButton() {
 }
 
 
-upgradeBtn.addEventListener("click", () => {
+on(upgradeBtn, "click", () => {
 
     // Already Pro
     if (isPro) {
@@ -529,82 +930,70 @@ upgradeBtn.addEventListener("click", () => {
     );
 
 
-    if (confirmUpgrade) {
+    if (!confirmUpgrade) {
 
-        // Activate Pro
-        isPro = true;
-
-
-        // Save status
-        localStorage.setItem(
-            "isPro",
-            JSON.stringify(isPro)
-        );
-
-
-        // Update button
-        updateProButton();
-
-
-        alert(
-            "Congratulations! Pro version is now active. You can create unlimited folders."
-        );
-
+        return;
     }
 
-});
+
+    // Save status first so Pro is never enabled without being persisted
+    if (!writeStorage("isPro", true)) {
+
+        return;
+    }
+
+
+    // Activate Pro
+    isPro = true;
+
+
+    // Update button
+    updateProButton();
+
+
+    alert(
+        "Congratulations! Pro version is now active. You can create unlimited folders."
+    );
+
+}, "Failed to upgrade to Pro", "The upgrade could not be completed.");
 
 
 // =========================
 // SEARCH NOTES
 // =========================
 
-const searchInput =
-    document.getElementById("searchInput");
-
-
-searchInput.addEventListener("input", () => {
+on(searchInput, "input", () => {
 
     const searchValue =
         searchInput.value.toLowerCase();
 
 
+    // Titles and texts may be missing on stored notes, so read them defensively
     const filteredNotes =
         notes.filter(note => {
 
-            return (
-                note.title
-                    .toLowerCase()
-                    .includes(searchValue)
+            const title = String(note.title ?? "").toLowerCase();
+            const text = String(note.text ?? "").toLowerCase();
 
-                ||
-
-                note.text
-                    .toLowerCase()
-                    .includes(searchValue)
-            );
+            return title.includes(searchValue)
+                || text.includes(searchValue);
 
         });
 
 
-    notesList.innerHTML =
-        filteredNotes.map((note) => `
+    if (!notesList) {
 
-        <div class="col-md-4">
+        logError("Cannot display search results: #noteList is missing", null);
 
-            <div class="note-card ${note.color || ""}">
+        return;
+    }
 
-                <h6>${note.title || "Untitled"}</h6>
 
-                <p>${note.text || ""}</p>
+    notesList.innerHTML = filteredNotes
+        .map(note => noteCardMarkup(note, null))
+        .join("");
 
-            </div>
-
-        </div>
-
-    `).join("");
-
-});
+}, "Search failed", null);
 
 
 // =========================

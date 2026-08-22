@@ -1,0 +1,76 @@
+body{
+    background: rgb(227, 227, 227);
+}
+.sidebar{
+    width: 240px;
+    height: 100vh;
+    background:#ffffff ;
+    border-right: 1px solid #9f9b9b;
+    display: flex;
+    flex-direction: column;
+    
+}
+.side-links li{
+    padding: 10px 0;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+.side-links li:hover{
+    color: rgb(63, 63, 197);
+}
+
+.upgrade{
+    text-align: center;
+    background: #160e475c;
+    padding:15px;
+    border-radius: 20px;
+}
+.folder-card {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: 0.25;
+}
+.folder-card :hover{
+    transform: translateX(-5px);
+}
+.soft-blue{
+    background-color: rgb(200, 199, 188);
+
+}
+
+.add-folder{
+    text-align: center;
+    border: 2px dashed #bbb;
+}
+.note-card{
+    border-radius: 15px;
+    padding: 20px;
+    min-height: 170px;
+    color: #222;
+    background: #fff;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    position: relative;
+
+}
+.note-actions{
+    position: absolute;
+    right: 15px;
+    top: 10px;
+
+}
+.note-actions i{
+    margin-left: 10px;
+    cursor: pointer;
+    color: #555;
+}
+.note-actions i:hover{
+    color: #000;
+
+}
+.bg-blue{
+    background-color: rgb(200, 199, 188);
+
+}

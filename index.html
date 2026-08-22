@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Notes App</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="d-flex">
+        <!-- sidevar -->
+        <aside class="sidebar p-3">
+            <h4>NOTES</h4>
+            <P class="small text-muted mb-1">ADD NEW</P>
+            <button class="btn btn-primary w-100 mb-3" data-bs-toggle="modal" data-bs-target="#noteModal"><i
+                    class="bi bi-plus-circle"></i> Note</button>
+
+            <ul class="list-unstyle mt-4 side-links">
+                <li> <i class="bi bi-calendar3"></i> calendar</li>
+                <li> <i class="bi bi-archive"></i> Archive </li>
+                <li><i class="bi bi-trash2"></i> Trash</li>
+            </ul>
+
+            <div class="upgrade mt-auto py-5">
+                <img src="./img/notes.png" width="50">
+                <p class="mt-2"> Access unlimited folder & fetures</p>
+                <button class="btn btn-dark btn-sm" id="upgradeBtn">Upgrade Pro</button>
+            </div>
+        </aside>
+
+
+        <!-- main  -->
+        <main class="content p-4 flex-grow-1">
+            <!-- topbar -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold">My Notes</h2>
+                <input type="text" id="searchInput" class="form-control w-25" placeholder="search..">
+            </div>
+
+            <!-- recent folder -->
+            <section class="mb-5">
+                <h5 class="fw-bold mb-3">Recent Folder</h5>
+                <div class="row g-3" id="folderList">
+                    <div class="col-md-3">
+                        <div class="folder-card soft-blue">
+                            <h6>Movie Revices</h6>
+                            <p class="text-muted small">12/08/2026</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="folder-card soft-blue">
+                            <h6>class note</h6>
+                            <p class="text-muted small">02/08/2026</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="folder-card soft-blue">
+                            <h6>book list</h6>
+                            <p class="text-muted small">02/08/2026</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="folder-card add-folder">
+                            <i class="bi bi-folder-plus fs-1 "></i>
+                            <p class=" small">New folder</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Folder Modal -->
+<div class="modal fade" id="folderModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5>Create New Folder</h5>
+
+                <button type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal">
+                </button>
+            </div>
+
+            <div class="modal-body">
+
+                <input type="text"
+                    id="folderName"
+                    class="form-control"
+                    placeholder="Enter Folder Name">
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button class="btn btn-secondary"
+                    data-bs-dismiss="modal">
+                    Close
+                </button>
+
+                <button class="btn btn-primary"
+                    id="createFolderBtn">
+                    Create Folder
+                </button>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+            <!-- notes -->
+
+            <section>
+                <h5 class="fw-bold mb-3">My Notes</h5>
+                <div class="row g-3" id="noteList">
+                    <!-- js notes -->
+                </div>
+            </section>
+        </main>
+
+    </div>
+
+    <!-- add/edit -->
+  
+    <div class="modal fade" id="noteModal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 id="modalTitle">Add note</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="" id="editIndex">
+                    <input type="text" id="noteTitle" class="form-control mb-3" placeholder="Note Title">
+                    <textarea name="" id="NoteText" rows="5" class="form-control"
+                        placeholder="write somthing..."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">close</button>
+                    <button class="btn btn-primary" id="saveBtn">save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+        crossorigin="anonymous"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>

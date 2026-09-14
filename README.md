@@ -31,4 +31,4 @@ A clean, responsive, and intuitive note-taking web application that allows users
 ---
 
 ## 👤 Author
-- **Milan Klasariya** - [GitHub Profile](https://github.com/mkalsariya9127)
+- **Milan Kalsariya** - [GitHub Profile](https://github.com/mkalsariya9127)

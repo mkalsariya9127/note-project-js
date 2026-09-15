@@ -4,6 +4,11 @@ A clean, responsive, and intuitive note-taking web application that allows users
 
 ---
 
+## 🚀 Live Demo & Preview
+👉 **[View Live App on Vercel](https://note-project-js.vercel.app)**
+
+---
+
 ## ✨ Key Features
 - **CRUD Functionality:** Easily create, read, update, and delete notes in real time.
 - **Data Persistence:** Uses browser `localStorage` so notes remain saved even after refreshing or closing the browser.
